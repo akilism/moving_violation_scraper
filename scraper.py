@@ -45,7 +45,7 @@ def save_links(links):
         file_name = link.split("/")[-1]
         precinct = file_name.strip("sum.pdf")
         print("Saving: " + precinct + " - " + os.getcwd() + "/" + file_name)
-        file_data = scrape(link, False)
+        file_data = scrape(link)
         with open(file_name, "wb") as f:
             f.write(file_data)
 
