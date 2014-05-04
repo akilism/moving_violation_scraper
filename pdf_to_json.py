@@ -52,9 +52,9 @@ def get_precincts():
 
 def open_files():
     files = []
-    monthly_precinct_totals = []
-    precinct_data = {}
     for precinct in get_precincts():
+        precinct_data = {}
+        monthly_precinct_totals = []
         precinct_data["precinct"] = precinct
         for directory in get_directories(path_read):
             for file_name in get_directory_contents(path_read + directory):
