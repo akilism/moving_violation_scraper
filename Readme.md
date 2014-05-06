@@ -8,3 +8,6 @@ It should scrape all available .pdfs if you place them in directories under raw_
 A tiny bit of spot checking has been done but that is all.
 
 Sample PDF and JSON file have been supplied. 
+
+
+*There is an additional branch that scrapes and saves the data by precinct instead of by date.*
