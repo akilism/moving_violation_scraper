@@ -7,65 +7,111 @@ from pdfminer.pdfinterp import PDFPageInterpreter
 from pdfminer.converter import TextConverter
 from pdfminer.layout import LAParams
 import StringIO
+import json
 
 path_read = "raw_data/pdf/"
-path_save = "raw_data/json/"
+path_save = "raw_data/json/precincts/"
 month = ""
+dir_year = 2014
+dir_mo = 0
 
+precincts = ["001", "030", "062", "088", "115", "005", "032", "063", "090", "120", "006", "033", "066", "094", "121", "007", "034", "067", "100", "122", "009", "040", "068", "101", "123", "010", "041", "069", "102", "city", "013", "042", "070", "103", "cot", "014", "043", "071", "104", "housing", "017", "044", "072", "105", "patrol", "018", "045", "073", "106", "pbbn", "019", "046", "075", "107", "pbbs", "020", "047", "076", "108", "pbbx", "022", "048", "077", "109", "pbmn", "023", "049", "078", "110", "pbms", "024", "050", "079", "111", "pbqn", "025", "052", "081", "112", "pbqs", "026", "060", "083", "113", "pbsi", "028", "061", "084", "114", "transit"]
+precinct_data = []
 
 def convert_files():
     open_files()
 
 
-def open_files():
-    files = []
-    file_contents = ""
+def get_directory_contents(path):
+    files = os.listdir(path)
 
-    if not os.path.exists(path_read):
+    for file in files:
+        yield file
+
+
+def get_directories(path):
+    global dir_year, dir_mo
+
+    if not os.path.exists(path):
         raise Exception("Read Path Does Not Exist.")
     else:
-        subdirs = os.listdir(path_read)
+        subdirs = os.listdir(path)
 
     for directory in subdirs:
-        files = os.listdir(path_read + directory)
+        parts = directory.split("_")
+        dir_year = int(parts[0])
+        dir_mo = int(parts[1])
+        yield directory
 
-        if len(files) > 0:
-            for file_name in files:
-                if file_name.find(".pdf") > 0:
+
+# TODO: Use csv or A for all.
+def get_precincts():
+    for precinct in precincts:
+         yield precinct
+
+
+def open_files():
+    files = []
+    for precinct in get_precincts():
+        precinct_data = {}
+        monthly_precinct_totals = []
+        precinct_data["precinct"] = precinct
+        for directory in get_directories(path_read):
+            for file_name in get_directory_contents(path_read + directory):
+                if file_name.find(".pdf") >= 0 and file_name.find(precinct) >= 0:
                     os.chdir(path_read + directory)
                     with open(file_name, "rb") as pdf_file:
                         print(file_name)
                         raw_contents = convert_file(pdf_file, file_name)
-                        file_contents = parse_file(raw_contents)
-                    write_file(file_contents, file_name, directory)
-                    os.chdir('../../../')
+                        index_locations = parse_file(raw_contents)
+                        month_data = build_monthly_data(index_locations)
+                        precinct_data["precinct_name"] = month_data.pop("precinct", "")
+                        monthly_precinct_totals.append(month_data)
+                    os.chdir("../../../")
+        write_file(monthly_precinct_totals, precinct_data, directory)
+        os.chdir("../../../")
+        print(os.getcwd())
 
 
-def write_file(file_data, file_name, directory):
-    os.chdir('../../../')
-    path = path_save + directory
-    if not os.path.exists(path):
-        parts = path.split("/")
-        for part in parts:
-            if len(part) > 0:
-                if not os.path.exists(part):
-                    os.mkdir(part)
-                    os.chdir(part)
-                else:
-                    os.chdir(part)
+def build_directory(path):
+    parts = path.split("/")
+    for part in parts:
+        if len(part) > 0:
+            print(os.getcwd())
+            if not os.path.exists(part):
+                os.mkdir(part)
+                os.chdir(part)
+            else:
+                os.chdir(part)
+
+
+def open_directory(directory):
+    # os.chdir("../../../")
+    # path = path_save + directory
+    if not os.path.exists(path_save):
+        build_directory(path_save)
     else:
-        os.chdir(path)
+        os.chdir(path_save)
 
-    file_name = month + "_" + file_name.replace(".pdf", ".json")
+
+def write_file(totals, precinct_data, directory):
+    file_name = precinct_data["precinct"] + "_precinct.json"
+
+    file_data = {
+        "precinct": precinct_data["precinct_name"],
+        "precinct_id": precinct_data["precinct"],
+        "monthly_totals": totals
+    }
+
+    open_directory(directory)
+    print("writing: " + path_save + file_name)
     with open(file_name, "wb") as f:
-        f.write(file_data)
-
-    print(file_data)
+        f.write(json.dumps(file_data))
 
 
 def parse_file(raw_contents):
     # print(raw_contents)
-    lines = raw_contents.split('\n')
+    lines = raw_contents.split("\n")
     x = 0
     precinct_found = False
     description_found = False
@@ -78,50 +124,76 @@ def parse_file(raw_contents):
     ytd_line = -1
 
     for line in lines:
-        if line.find('Moving Violations') != -1 and not precinct_found:
+        if line.find("Moving Violations") != -1 and not precinct_found:
             precinct_line = x + 2
-            if lines[precinct_line + 1] == '':
+            if lines[precinct_line + 1] == "":
                 month_line = precinct_line + 2
             else:
                 month_line = precinct_line + 1
-        elif line.find('Description') != -1 and not description_found:
+        elif line.find("Description") != -1 and not description_found:
             description_line = x + 2
-        elif line.find('MTD') != -1 and not mtd_found:
+        elif line.find("MTD") != -1 and not mtd_found:
             mtd_line = x + 1
-        elif line.find('YTD') != -1 and not ytd_found:
+        elif line.find("YTD") != -1 and not ytd_found:
             ytd_line = x + 1
         x += 1
 
-    return build_JSON(lines, precinct_line, month_line, description_line, mtd_line, ytd_line)
+    return {
+        "lines": lines,
+        "precinct_line": precinct_line,
+        "month_line": month_line,
+        "description_line": description_line,
+        "mtd_line": mtd_line,
+        "ytd_line": ytd_line
+    }
 
 
-def build_JSON(lines, precinct_line, month_line, description_line, mtd_line, ytd_line):
+def build_monthly_data(index_locations):
     global month
+
+    lines = index_locations["lines"]
+    precinct_line = index_locations["precinct_line"]
+    month_line = index_locations["month_line"]
+    description_line = index_locations["description_line"]
+    mtd_line = index_locations["mtd_line"]
+    ytd_line = index_locations["ytd_line"]
+
     x = 0
     started_violations = False
-    JSON = "{"
+
+    data = {}
+
     for line in lines:
         if x == precinct_line:
-            JSON += "\"precinct\":\"" + line + "\","
             month = str(lines[month_line])[:-1]
-            JSON += "\"month\":\"" + month + "\","
+            data["precinct"] = line
+            data["month"] = month
+            data["year"] = dir_year
+            data["month_no"] = dir_mo
         elif x >= description_line:
             if line == "":
                 break
 
             if not started_violations:
-                JSON += "\"violations\":["
+                data["violations"] = []
                 started_violations = True
 
-            JSON += "{\"name\":\"" + line + "\","
-            JSON += "\"mtd\":" + lines[(x - description_line) + mtd_line] + ","
-            JSON += "\"ytd\":" + lines[(x - description_line) + ytd_line] + "},"
+            try:
+                mtd = int(lines[(x - description_line) + mtd_line])
+                ytd = int(lines[(x - description_line) + ytd_line])
+            except:
+                mtd = lines[(x - description_line) + mtd_line]
+                ytd = lines[(x - description_line) + ytd_line]
+
+            data["violations"].append({
+                    "name": line,
+                    "mtd": mtd,
+                    "ytd": ytd
+                })
         x += 1
 
-    JSON = JSON[:-1]
-    JSON += "]}"
-    # print JSON
-    return JSON
+    # print(data)
+    return data
 
 
 def convert_file(pdf_file, file_name):
@@ -134,7 +206,7 @@ def convert_file(pdf_file, file_name):
     resource = PDFResourceManager()
     laparams = LAParams()
     output = StringIO.StringIO()
-    device = TextConverter(resource, output, codec='utf-8', laparams=laparams)
+    device = TextConverter(resource, output, codec="utf-8", laparams=laparams)
 
     interpreter = PDFPageInterpreter(resource, device)
     for page in PDFPage.create_pages(pdf):
