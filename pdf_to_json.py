@@ -12,7 +12,7 @@ import json
 path_read = "raw_data/pdf/"
 path_save = "raw_data/json/precincts/"
 month = ""
-dir_year = 2013
+dir_year = 2014
 dir_mo = 0
 
 precincts = ["001", "030", "062", "088", "115", "005", "032", "063", "090", "120", "006", "033", "066", "094", "121", "007", "034", "067", "100", "122", "009", "040", "068", "101", "123", "010", "041", "069", "102", "city", "013", "042", "070", "103", "cot", "014", "043", "071", "104", "housing", "017", "044", "072", "105", "patrol", "018", "045", "073", "106", "pbbn", "019", "046", "075", "107", "pbbs", "020", "047", "076", "108", "pbbx", "022", "048", "077", "109", "pbmn", "023", "049", "078", "110", "pbms", "024", "050", "079", "111", "pbqn", "025", "052", "081", "112", "pbqs", "026", "060", "083", "113", "pbsi", "028", "061", "084", "114", "transit"]
@@ -150,7 +150,7 @@ def parse_file(raw_contents):
 
 def build_monthly_data(index_locations):
     global month
-    
+
     lines = index_locations["lines"]
     precinct_line = index_locations["precinct_line"]
     month_line = index_locations["month_line"]
